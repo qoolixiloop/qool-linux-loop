@@ -78,7 +78,7 @@ sed_Wrapper() {
   # ---------------------------------------------------------------------------
   #============================================================================
 
-  echo "entering sed_append_url()"
+  echo "entering sed_wrapper()"
 
   # INPUT: arguments
   local file="$1"
@@ -100,17 +100,17 @@ sed_Wrapper() {
   echo "filetmp: $filetmp"
   echo "commandLineOptions: $commandLineOptions"
   echo "separator: $separator"
-  echo "addressRange: $addressRange # N_from,M_to or M"
-  echo "regexRange: $regexRange # /reg_from/,/reg_to/ or /reg/"
-  echo "command: $command # a, i, d, p, =, s"
-  echo "commandOptions: $commandOptions # e.g TEXT to add"
-  echo "substituteSearch: $substituteSearch # /reg/"
-  echo "substituteReplace: $substituteReplace # /text/"
+  echo "addressRange: $addressRange"
+  echo "regexRange: $regexRange"
+  echo "command: $command"
+  echo "commandOptions: $commandOptions"
+  echo "substituteSearch: $substituteSearch"
+  echo "substituteReplace: $substituteReplace"
 
 
   #CHECK: number of arguments
   if [[ "$#" -ne 10 ]]; then
-    echo "ERROR: number of arguments: $#; but should be 9"
+    echo "ERROR: number of arguments: $#; but should be 10"
     return
   fi
   echo "number of arguments: $#"
@@ -144,7 +144,7 @@ sed_Wrapper() {
       elif [[ -n "$regexRange" ]]; then
         sedScript="${regexRange}a $commandOptions"
       else
-        echo "wrong application"
+        echo "wrong application of command a"
       fi
       ;;
     i)
@@ -154,7 +154,7 @@ sed_Wrapper() {
       elif [[ -n "$regexRange" ]]; then
         sedScript="${regexRange}i $commandOptions"
       else
-        echo "wrong application"
+        echo "wrong application of command i"
       fi
       ;;
     d)
@@ -166,7 +166,7 @@ sed_Wrapper() {
       elif [[ -n "$regexRange" ]]; then
         sedScript="${regexRange}d $commandOptions"
       else
-        echo "wrong application"
+        echo "wrong application of command d"
       fi
       ;;
     =)
@@ -178,7 +178,7 @@ sed_Wrapper() {
       elif [[ -n "$regexRange" ]]; then
         sedScript="${regexRange}= $commandOptions"
       else
-        echo "wrong application"
+        echo "wrong application of command ="
       fi
       ;;
     p)
@@ -190,29 +190,39 @@ sed_Wrapper() {
       elif [[ -n "$regexRange" ]]; then
         sedScript="${regexRange}p $commandOptions"
       else
-        echo "wrong application"
+        echo "wrong application of command p"
       fi
       ;;
     s)
       echo "command: s"
-      if [[ -n "$addressRange" ]] && [[ -n "$regexRange" ]]; then
-        sedScript="${addressRange}{${regexRange}s${sep}\
-          ${substituteSearch}${sep}${substituteReplace}${sep}\
-          ${substituteOption}}"
-      elif [[ -n "$addressRange" ]]; then
-        sedScript="${addressRange}{s${sep}\
-          ${substituteSearch}${sep}${substituteReplace}${sep}\
-          ${substituteOption}}"
-      elif [[ -n "$regexRange" ]]; then
-        sedScript="${regexRange}s{${sep}\
-          ${substituteSearch}${sep}${substituteReplace}${sep}\
-          ${substituteOption}}"
+      
+      if [[ -n "$substituteSearch" ]] && [[ -n "$substituteReplace" ]]; then
+        if [[ -n "$addressRange" ]] && [[ -n "$regexRange" ]]; then
+          sedScript="${addressRange}{${regexRange}\
+            s${sep}${substituteSearch}${sep}${substituteReplace}${sep}\
+            ${commandOptions}}"
+        elif [[ -n "$addressRange" ]]; then
+          sedScript="${addressRange}\
+            {s${sep}${substituteSearch}${sep}${substituteReplace}${sep}\
+              ${commandOptions}}"
+        elif [[ -n "$regexRange" ]]; then
+          sedScript="${regexRange}\
+            {s${sep}${substituteSearch}${sep}${substituteReplace}${sep}\
+              ${commandOptions}}"
+        else
+          sedScript="\
+            {s${sep}${substituteSearch}${sep}${substituteReplace}${sep}\
+              ${commandOptions}}"
+        fi
       else
-        echo "wrong application"
+        echo "wrong application of command s"
+        echo "substituteSearch: $substituteSearch\ 
+          substituteReplace: $substituteReplace"
       fi
       ;;
   esac
-
+  
+  echo "sedScript: $sedScript"
   echo "---------------------BUILD_SCRIPT end---------------------------------"
 
   # user interaction: 
@@ -222,14 +232,30 @@ sed_Wrapper() {
   echo "---------------------SED begin----------------------------------------"
   # apply sed substitution to $file to whole line (g)
   # avoid inline editing by writing into $filetmp
-  sed -E "$sedScript"
+  if [[ -n "$filetmp" ]]; then
+    if [[ -n "$commandLineOptions" ]]; then
+      echo "sed_1"
+      sed -E "$commandLineOptions" -e "$sedScript" <"$file" >"$filetmp" 
+    else
+      echo "sed_2"
+      sed -E -e "$sedScript" <"$file" >"$filetmp"
+    fi
+  else
+    if [[ -n "$commandLineOptions" ]]; then
+      echo "sed_3"
+      sed -E "$commandLineOptions" -e "$sedScript" <"$file" 
+    else
+      echo "sed_4"
+      sed -E -e "$sedScript" <"$file"
+    fi
+  fi
   echo "---------------------SED end------------------------------------------"
 
 
   #DIFF: show differences before and after
   if [[ -n "$filetmp" ]]; then 
     echo "---------------------DIFF begin-------------------------------------"
-    diff "$file" "$filetmp"
+    diff -u --color "$file" "$filetmp"
     echo "---------------------DIFF end---------------------------------------"
   fi
 
@@ -245,5 +271,5 @@ sed_Wrapper() {
 }
 
 #call function
-sed_search_replace "$@"
+sed_Wrapper "$@"
 # -----------------------------------------------------------------------------
